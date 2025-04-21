@@ -1,0 +1,5 @@
+How to Use the Testing Script
+1. Basic Usage: python "PPE Detection/ModelTesting.py" --image "path/to/your/test_image.jpg"
+2. Using a Different Model: python "PPE Detection/ModelTesting.py" --image "path/to/your/test_image.jpg" --model "path/to/your/custom_model.pt"
+3. Adjusting the Confidence Threshold: python "PPE Detection/ModelTesting.py" --image "path/to/your/test_image.jpg" --conf 0.5
+4. Saving the Output Image: python "PPE Detection/ModelTesting.py" --image "path/to/your/test_image.jpg" --output "output_image.jpg"

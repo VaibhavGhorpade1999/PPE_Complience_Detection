@@ -1,0 +1,33 @@
+How to Use the PPE Compliance Checker
+
+1. Basic Usage:
+   python "PPE Detection/PPEComplianceChecker.py"
+
+2. Using a Different Model:
+   python "PPE Detection/PPEComplianceChecker.py" --model "path/to/your/custom_model.pt"
+
+3. Using a Different Camera (if you have multiple):
+   python "PPE Detection/PPEComplianceChecker.py" --camera 1
+
+4. Adjusting the Confidence Threshold:
+   python "PPE Detection/PPEComplianceChecker.py" --conf 0.5
+
+5. Saving the Output Video:
+   python "PPE Detection/PPEComplianceChecker.py" --output "recordings/compliance.mp4"
+
+6. Change Minimum Required PPE Items:
+   python "PPE Detection/PPEComplianceChecker.py" --min-ppe 3
+
+Controls during operation:
+- Press 'q' to quit
+- Press 'r' to start/stop recording
+- Press 'f' to toggle fullscreen mode
+
+Compliance Rules:
+- By default, at least 4 PPE items must be detected (mask, gloves, gown, cap)
+- The person will be marked as "NOT ALLOWED" if:
+  - Fewer than the minimum required PPE items are detected
+  - Any non-compliant indicators are detected (no-facial-gear, no-surgical-gloves, etc.)
+- The person will be marked as "ALLOWED" if all compliance criteria are met
+
+The compliance status and details of which PPE items are detected will be shown on screen. 

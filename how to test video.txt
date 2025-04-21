@@ -1,0 +1,16 @@
+How to Use the Video Testing Script
+
+1. Basic Usage:
+   python "PPE Detection/ModelTestingVideo.py" --video "path/to/your/test_video.mp4"
+
+2. Using a Different Model:
+   python "PPE Detection/ModelTestingVideo.py" --video "path/to/your/test_video.mp4" --model "path/to/your/custom_model.pt"
+
+3. Adjusting the Confidence Threshold:
+   python "PPE Detection/ModelTestingVideo.py" --video "path/to/your/test_video.mp4" --conf 0.5
+
+4. Saving the Output Video:
+   python "PPE Detection/ModelTestingVideo.py" --video "path/to/your/test_video.mp4" --output "output_video.mp4"
+
+5. Processing Without Display (Faster):
+   python "PPE Detection/ModelTestingVideo.py" --video "path/to/your/test_video.mp4" --output "output_video.mp4" --no-display 

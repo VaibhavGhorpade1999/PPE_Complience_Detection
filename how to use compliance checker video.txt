@@ -1,0 +1,38 @@
+How to Use the PPE Compliance Checker for Videos
+
+1. Basic Usage:
+   python "PPE Detection/PPEComplianceCheckerVideo.py" --video "path/to/your/video.mp4"
+
+2. Using a Different Model:
+   python "PPE Detection/PPEComplianceCheckerVideo.py" --video "path/to/your/video.mp4" --model "path/to/your/custom_model.pt"
+
+3. Adjusting the Confidence Threshold:
+   python "PPE Detection/PPEComplianceCheckerVideo.py" --video "path/to/your/video.mp4" --conf 0.5
+
+4. Saving the Output Video:
+   python "PPE Detection/PPEComplianceCheckerVideo.py" --video "path/to/your/video.mp4" --output "outputs/compliance_output.mp4"
+
+5. Processing Without Display (Faster):
+   python "PPE Detection/PPEComplianceCheckerVideo.py" --video "path/to/your/video.mp4" --output "outputs/compliance_output.mp4" --no-display
+
+6. Change Playback Speed:
+   python "PPE Detection/PPEComplianceCheckerVideo.py" --video "path/to/your/video.mp4" --speed 2.0
+
+7. Change Minimum Required PPE Items:
+   python "PPE Detection/PPEComplianceCheckerVideo.py" --video "path/to/your/video.mp4" --min-ppe 3
+
+Playback Controls:
+- Press 'q' to quit
+- Press 'p' to pause/resume playback
+- Press 'f' to toggle fullscreen mode
+- Press '+' to speed up playback
+- Press '-' to slow down playback
+
+Compliance Rules:
+- By default, at least 4 PPE items must be detected (mask, gloves, gown, cap)
+- The person will be marked as "NOT ALLOWED" if:
+  - Fewer than the minimum required PPE items are detected
+  - Any non-compliant indicators are detected (no-facial-gear, no-surgical-gloves, etc.)
+- The person will be marked as "ALLOWED" if all compliance criteria are met
+
+The compliance status and details of which PPE items are detected will be shown on screen. 

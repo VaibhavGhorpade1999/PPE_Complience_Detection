@@ -1,0 +1,21 @@
+How to Use the Webcam Detection Script
+
+1. Basic Usage:
+   python "PPE Detection/WebcamDetection.py"
+
+2. Using a Different Model:
+   python "PPE Detection/WebcamDetection.py" --model "path/to/your/custom_model.pt"
+
+3. Using a Different Camera (if you have multiple):
+   python "PPE Detection/WebcamDetection.py" --camera 1
+
+4. Adjusting the Confidence Threshold:
+   python "PPE Detection/WebcamDetection.py" --conf 0.5
+
+5. Saving the Output Video:
+   python "PPE Detection/WebcamDetection.py" --output "recordings/output.mp4"
+
+Controls during webcam detection:
+- Press 'q' to quit
+- Press 'r' to start/stop recording (when not using --output)
+- Press 'f' to toggle fullscreen mode 
