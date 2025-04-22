@@ -142,10 +142,13 @@ def process_image(model, image, conf_threshold=0.25):
     """Process an image and check PPE compliance"""
     # Convert PIL Image to RGB and then to numpy array
     if isinstance(image, Image.Image):
+        # Ensure the image is in RGB format (3 channels)
         image = image.convert('RGB')
         image_np = np.array(image)
     else:
+        # If already numpy array, ensure it's RGB
         if len(image.shape) == 3 and image.shape[2] == 4:
+            # Convert RGBA to RGB
             image_np = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
         else:
             image_np = image
@@ -161,46 +164,8 @@ def process_image(model, image, conf_threshold=0.25):
     # Check compliance
     is_compliant, compliance_details = check_ppe_compliance(results[0])
     
-    # Create a copy of the image for drawing
-    result_image = image_np.copy()
-    
-    # Draw detections with custom colors
-    if hasattr(results[0], 'boxes') and len(results[0].boxes) > 0:
-        for box in results[0].boxes:
-            # Get box coordinates
-            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-            cls_id = int(box.cls.item())
-            conf = float(box.conf.item())
-            cls_name = results[0].names[cls_id]
-            
-            # Determine color based on class type
-            if cls_name in NON_COMPLIANT_INDICATORS:
-                color = (255, 0, 0)  # Red for non-compliant indicators
-            else:
-                color = (0, 255, 0)  # Green for compliant PPE
-            
-            # Draw rectangle
-            cv2.rectangle(result_image, 
-                         (int(x1), int(y1)), 
-                         (int(x2), int(y2)), 
-                         color, 2)
-            
-            # Add label with confidence
-            label = f"{cls_name} {conf:.2f}"
-            (label_width, label_height), _ = cv2.getTextSize(label, 
-                                                           cv2.FONT_HERSHEY_SIMPLEX, 
-                                                           0.5, 1)
-            
-            # Draw label background
-            cv2.rectangle(result_image, 
-                         (int(x1), int(y1) - label_height - 5),
-                         (int(x1) + label_width, int(y1)), 
-                         color, -1)
-            
-            # Draw label text
-            cv2.putText(result_image, label,
-                       (int(x1), int(y1) - 5),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    # Get the image with detections
+    result_image = results[0].plot()
     
     return result_image, is_compliant, compliance_details
 
@@ -297,6 +262,7 @@ def process_video_frame(frame, model, conf_threshold=0.25, item_memory=None):
     """Process a single video frame and check PPE compliance"""
     # Ensure frame is in RGB format (3 channels)
     if len(frame.shape) == 3 and frame.shape[2] == 4:
+        # Convert RGBA to RGB
         frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
     
     # Run inference
@@ -310,64 +276,55 @@ def process_video_frame(frame, model, conf_threshold=0.25, item_memory=None):
     # Check compliance
     is_compliant, compliance_details = check_ppe_compliance(results[0], item_memory)
     
-    # Create a copy of the frame for drawing
-    result_frame = frame.copy()
+    # Get the frame with detections
+    result_frame = results[0].plot()
     
-    # Draw detections with custom colors
-    if hasattr(results[0], 'boxes') and len(results[0].boxes) > 0:
-        for box in results[0].boxes:
-            # Get box coordinates
-            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-            cls_id = int(box.cls.item())
-            conf = float(box.conf.item())
-            cls_name = results[0].names[cls_id]
-            
-            # Determine color based on class type
-            if cls_name in NON_COMPLIANT_INDICATORS:
-                color = (0, 0, 255)  # Red for non-compliant indicators (BGR format)
-            else:
-                color = (0, 255, 0)  # Green for compliant PPE
-            
-            # Draw rectangle
-            cv2.rectangle(result_frame, 
-                         (int(x1), int(y1)), 
-                         (int(x2), int(y2)), 
-                         color, 2)
-            
-            # Add label with confidence
-            label = f"{cls_name} {conf:.2f}"
-            (label_width, label_height), _ = cv2.getTextSize(label, 
-                                                           cv2.FONT_HERSHEY_SIMPLEX, 
-                                                           0.5, 1)
-            
-            # Draw label background
-            cv2.rectangle(result_frame, 
-                         (int(x1), int(y1) - label_height - 5),
-                         (int(x1) + label_width, int(y1)), 
-                         color, -1)
-            
-            # Draw label text
-            cv2.putText(result_frame, label,
-                       (int(x1), int(y1) - 5),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-    
-    # Add compliance status to the frame
+    # Add compliance status to the frame with a background
+    height, width = result_frame.shape[:2]
     status_text = "ALLOWED" if is_compliant else "NOT ALLOWED"
-    status_color = (0, 255, 0) if is_compliant else (255, 0, 0)
+    status_color = (0, 255, 0) if is_compliant else (0, 0, 255)  # Green for allowed, Red for not allowed
     
     # Create background for status text
     text_size = cv2.getTextSize(status_text, cv2.FONT_HERSHEY_SIMPLEX, 2, 3)[0]
-    text_x = (frame.shape[1] - text_size[0]) // 2
-    text_y = frame.shape[0] - 50
+    text_x = (width - text_size[0]) // 2
+    text_y = height - 50
     
-    # Draw background rectangle and status text
-    cv2.rectangle(result_frame,
-                 (text_x - 10, text_y - text_size[1] - 10),
-                 (text_x + text_size[0] + 10, text_y + 10),
-                 (0, 0, 0), -1)
-    cv2.putText(result_frame, status_text,
-                (text_x, text_y),
-                cv2.FONT_HERSHEY_SIMPLEX, 2, status_color, 3)
+    # Draw background rectangle
+    cv2.rectangle(
+        result_frame,
+        (text_x - 10, text_y - text_size[1] - 10),
+        (text_x + text_size[0] + 10, text_y + 10),
+        (0, 0, 0),
+        -1
+    )
+    
+    # Draw status text
+    cv2.putText(
+        result_frame,
+        status_text,
+        (text_x, text_y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        2,
+        status_color,
+        3
+    )
+    
+    # Add PPE status details on the right side
+    y_offset = 80
+    for ppe, status in compliance_details['ppe_status'].items():
+        status_text = f"{ppe}: {'✓' if status else '✗'}"
+        color = (0, 255, 0) if status else (0, 0, 255)
+        
+        cv2.putText(
+            result_frame,
+            status_text,
+            (width - 350, y_offset),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            color,
+            2
+        )
+        y_offset += 40
     
     return result_frame, is_compliant, compliance_details
 
