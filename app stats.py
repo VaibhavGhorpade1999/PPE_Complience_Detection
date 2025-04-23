@@ -185,97 +185,113 @@ def process_image(model, image, conf_threshold=0.25):
                          (int(x2), int(y2)), 
                          color, 2)
             
-            # Add label without confidence
-            label = cls_name  # Removed confidence value
-            font_size = 0.8  # Increased font size (was 0.5)
-            font_thickness = 2  # Increased thickness for better visibility
-            
+            # Add label with confidence
+            label = f"{cls_name} {conf:.2f}"
             (label_width, label_height), _ = cv2.getTextSize(label, 
                                                            cv2.FONT_HERSHEY_SIMPLEX, 
-                                                           font_size, font_thickness)
+                                                           0.5, 1)
             
             # Draw label background
             cv2.rectangle(result_image, 
-                         (int(x1), int(y1) - label_height - 10),  # Adjusted padding
+                         (int(x1), int(y1) - label_height - 5),
                          (int(x1) + label_width, int(y1)), 
                          color, -1)
             
-            # Draw label text with black color
+            # Draw label text
             cv2.putText(result_image, label,
                        (int(x1), int(y1) - 5),
-                       cv2.FONT_HERSHEY_SIMPLEX, font_size, (0, 0, 0), font_thickness)
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     
     return result_image, is_compliant, compliance_details
 
 def image_compliance_checker():
     """UI for checking compliance on uploaded images"""
-    # Use less vertical space for the header
-    st.write("### Image PPE Compliance Checker")
+    st.subheader("Image PPE Compliance Checker")
     
-    # Create a more efficient layout with all elements in one row
-    col1, col2, col3 = st.columns([1, 1.5, 1.5])
+    # File uploader and confidence threshold in the same row
+    col1, col2 = st.columns([3, 1])
     
-    # File uploader in first column
     with col1:
-        uploaded_file = st.file_uploader("Upload image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-        process_button = st.button("Check Compliance", use_container_width=True)
-        
-        # Create a placeholder for status information
-        status_placeholder = st.empty()
+        uploaded_file = st.file_uploader("Upload an image to check PPE compliance", 
+                                        type=["jpg", "jpeg", "png"])
     
-    # Column for original image    
     with col2:
-        original_placeholder = st.empty()
-    
-    # Column for result image
-    with col3:
-        result_placeholder = st.empty()
+        conf_threshold = st.slider("Confidence", 0.1, 1.0, 0.25, 0.05)
     
     if uploaded_file is not None:
         # Load image
         image = Image.open(uploaded_file)
         
-        # Calculate aspect ratio and set a fixed height
-        img_width, img_height = image.size
-        aspect_ratio = img_width / img_height
-        display_height = 800  # Fixed display height
+        # Create two columns for original and processed images
+        img_col1, img_col2 = st.columns(2)
         
-        # Display original image with fixed height
-        original_placeholder.markdown("**Original Image**")
-        original_placeholder.image(image, width=int(display_height * aspect_ratio))
+        # Display original image in the left column
+        with img_col1:
+            st.markdown("**Original Image**")
+            st.image(image, use_container_width=True)
         
-        # Process and display result if button clicked
+        # Place process button below the original image
+        with img_col1:
+            process_button = st.button("Check Compliance")
+        
+        # Process and display result in the right column if button clicked
         if process_button:
-            with st.spinner("Processing..."):
+            with st.spinner("Processing image..."):
                 # Process image
                 result_image, is_compliant, compliance_details = process_image(
-                    model, image, 0.25)
+                    model, image, conf_threshold)
                 
-                # Display result image with the same fixed height
-                result_placeholder.markdown("**Detection Result**")
-                result_placeholder.image(result_image, width=int(display_height * aspect_ratio))
+                # Display result image in the right column
+                with img_col2:
+                    st.markdown("**Detection Result**")
+                    st.image(result_image, use_container_width=True)
                 
-                # Create a compact status display
-                with status_placeholder.container():
-                    # Overall status
-                    st.markdown(f"**Status:** {'✅ ALLOWED' if is_compliant else '❌ NOT ALLOWED'}")
+                # Create compact status display
+                status_cols = st.columns(len(compliance_details['ppe_status']) + 1)
+                
+                # Display overall status in first column
+                with status_cols[0]:
+                    if is_compliant:
+                        st.success("✅ ALLOWED")
+                    else:
+                        st.error("❌ NOT ALLOWED")
+                
+                # Display each PPE status in its own column
+                for i, (ppe, status) in enumerate(compliance_details['ppe_status'].items()):
+                    with status_cols[i+1]:
+                        if status:
+                            st.success(f"✅ {ppe}")
+                        else:
+                            st.error(f"❌ {ppe}")
+                
+                # Display any non-compliant indicators in a single line
+                if compliance_details['non_compliant_indicator_detected']:
+                    non_compliant_items = [cls for cls in compliance_details['detected_classes'] 
+                                          if cls in NON_COMPLIANT_INDICATORS]
+                    if non_compliant_items:
+                        st.error(f"Non-compliant items: {', '.join(non_compliant_items)}")
+                
+                # Add a detailed reason for the compliance decision
+                st.markdown("### Reason for Decision")
+                if is_compliant:
+                    st.success("✅ ALLOWED because:")
+                    st.write("- All required PPE items are properly worn")
+                    st.write(f"- Detected {compliance_details['num_ppe_worn']}/{len(REQUIRED_PPE)} PPE items")
+                    st.write("- No non-compliant conditions detected")
+                else:
+                    st.error("❌ NOT ALLOWED because:")
+                    missing_items = [ppe for ppe, status in compliance_details['ppe_status'].items() if not status]
+                    if missing_items:
+                        st.write(f"- Missing PPE items: {', '.join(missing_items)}")
                     
-                    # Display PPE items vertically (one below the other)
-                    for ppe, status in compliance_details['ppe_status'].items():
-                        icon = "✅" if status else "❌"
-                        ppe_name = ppe.replace('_', ' ').title()
-                        st.markdown(f"{icon} {ppe_name}")
-                    
-                    # Show non-compliant indicators if any
                     if compliance_details['non_compliant_indicator_detected']:
                         non_compliant_items = [cls for cls in compliance_details['detected_classes'] 
                                               if cls in NON_COMPLIANT_INDICATORS]
                         if non_compliant_items:
-                            st.error(f"Non-compliant items: {', '.join(non_compliant_items)}")
-    else:
-        # Display placeholders when no image is uploaded
-        original_placeholder.markdown("**Original Image will appear here**")
-        result_placeholder.markdown("**Detection Result will appear here**")
+                            st.write(f"- Issues detected: {', '.join(non_compliant_items)}")
+                    
+                    if compliance_details['num_ppe_worn'] < MIN_REQUIRED_PPE:
+                        st.write(f"- Only {compliance_details['num_ppe_worn']}/{MIN_REQUIRED_PPE} required PPE items detected")
 
 def process_video_frame(frame, model, conf_threshold=0.25, item_memory=None):
     """Process a single video frame and check PPE compliance"""
@@ -318,25 +334,22 @@ def process_video_frame(frame, model, conf_threshold=0.25, item_memory=None):
                          (int(x2), int(y2)), 
                          color, 2)
             
-            # Add label without confidence
-            label = cls_name  # Removed confidence value
-            font_size = 0.8  # Increased font size (was 0.5)
-            font_thickness = 2  # Increased thickness for better visibility
-            
+            # Add label with confidence
+            label = f"{cls_name} {conf:.2f}"
             (label_width, label_height), _ = cv2.getTextSize(label, 
                                                            cv2.FONT_HERSHEY_SIMPLEX, 
-                                                           font_size, font_thickness)
+                                                           0.5, 1)
             
             # Draw label background
             cv2.rectangle(result_frame, 
-                         (int(x1), int(y1) - label_height - 10),  # Adjusted padding
+                         (int(x1), int(y1) - label_height - 5),
                          (int(x1) + label_width, int(y1)), 
                          color, -1)
             
-            # Draw label text with black color
+            # Draw label text
             cv2.putText(result_frame, label,
                        (int(x1), int(y1) - 5),
-                       cv2.FONT_HERSHEY_SIMPLEX, font_size, (0, 0, 0), font_thickness)
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     
     # Add compliance status to the frame
     status_text = "ALLOWED" if is_compliant else "NOT ALLOWED"
@@ -360,32 +373,29 @@ def process_video_frame(frame, model, conf_threshold=0.25, item_memory=None):
 
 def video_compliance_checker():
     """UI for checking compliance on uploaded videos"""
-    # Use less vertical space for the header
-    st.write("### Video PPE Compliance Checker")
+    st.subheader("Video PPE Compliance Checker")
     
-    # Create a two-column layout (similar to image compliance)
-    upload_col, video_col = st.columns([1, 3])
+    # Create a two-column layout for controls and video display
+    control_col, video_col = st.columns([1, 2])
     
-    # Upload controls in first column
-    with upload_col:
-        uploaded_file = st.file_uploader("Upload video", type=["mp4", "avi", "mov"], label_visibility="collapsed")
+    with control_col:
+        # File uploader and confidence threshold
+        uploaded_file = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
+        conf_threshold = st.slider("Confidence", 0.1, 1.0, 0.25, 0.05)
         
-        # Container for video info
-        info_container = st.container()
+        # Create a container for status and controls
+        control_container = st.container()
         
-        # Add process button
-        process_button = st.button("Process Video", use_container_width=True)
-        
-        # Progress indicators
-        progress_bar = st.empty()
-        status_text = st.empty()
-        
-        # Create a placeholder for status information (will show after processing)
-        status_placeholder = st.empty()
+        # Create a container for the conclusion
+        conclusion_container = st.container()
     
-    # Video display in larger column
+    # Video display area in the larger column
     with video_col:
+        # Create a placeholder for the video display
         video_placeholder = st.empty()
+        
+        # Create a placeholder for frame-specific compliance status
+        frame_metrics = st.empty()
     
     if uploaded_file is not None:
         # Save the uploaded file to a temporary file
@@ -403,25 +413,17 @@ def video_compliance_checker():
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = int(cap.get(cv2.CAP_PROP_FPS))
         
-        with info_container:
-            st.info(f"Video: {width}x{height}, {fps} FPS", icon="ℹ️")
-        
-        # Show a preview frame
-        ret, preview_frame = cap.read()
-        if ret:
-            # Reset video position
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        with control_container:
+            st.info(f"Video: {width}x{height}, {fps} FPS, {total_frames} frames")
             
-            # Convert BGR to RGB for display
-            preview_rgb = cv2.cvtColor(preview_frame, cv2.COLOR_BGR2RGB)
+            # Create a button to start processing
+            process_button = st.button("Process Video")
             
-            # Calculate aspect ratio for display
-            aspect_ratio = width / height
-            display_height = 700  # Fixed display height
-            display_width = int(display_height * aspect_ratio)
+            # Create a progress bar
+            progress_bar = st.progress(0)
             
-            # Display preview frame
-            video_placeholder.image(preview_rgb, width=display_width, caption="Preview - Click Process to analyze")
+            # Create a status text
+            status_text = st.empty()
         
         if process_button:
             # Variables to track compliance statistics
@@ -429,9 +431,6 @@ def video_compliance_checker():
             non_compliant_frames = 0
             processed_frames = 0
             compliance_summary = {}
-            
-            # Track non-compliant indicators separately
-            non_compliant_indicators_count = {indicator: 0 for indicator in NON_COMPLIANT_INDICATORS}
             
             # Add memory for angle-dependent items
             item_memory = {item: 0 for item in REQUIRED_PPE if ANGLE_DEPENDENT_ITEMS.get(item, False)}
@@ -453,7 +452,7 @@ def video_compliance_checker():
                 # Update progress
                 progress = frame_count / total_frames
                 progress_bar.progress(progress)
-                status_text.text(f"Processing: {frame_count}/{total_frames}")
+                status_text.text(f"Processing: {frame_count}/{total_frames} ({progress*100:.1f}%)")
                 
                 # Process only every n-th frame
                 if frame_count % frame_step == 0:
@@ -461,7 +460,7 @@ def video_compliance_checker():
                     
                     # Process the frame
                     result_frame, is_compliant, compliance_details = process_video_frame(
-                        frame, model, 0.75, item_memory)
+                        frame, model, conf_threshold, item_memory)
                     
                     # Update memory for angle-dependent items
                     for item, is_detected in compliance_details['ppe_status'].items():
@@ -489,16 +488,16 @@ def video_compliance_checker():
                         else:
                             compliance_summary[ppe]['non_compliant'] += 1
                     
-                    # Track non-compliant indicators
-                    for cls in compliance_details['detected_classes']:
-                        if cls in NON_COMPLIANT_INDICATORS:
-                            non_compliant_indicators_count[cls] += 1
-                    
                     # Convert BGR to RGB
                     result_frame_rgb = cv2.cvtColor(result_frame, cv2.COLOR_BGR2RGB)
                     
                     # Display the frame
-                    video_placeholder.image(result_frame_rgb, width=display_width)
+                    video_placeholder.image(result_frame_rgb, use_container_width=True)
+                    
+                    # Display current frame metrics
+                    frame_status = "ALLOWED" if is_compliant else "NOT ALLOWED"
+                    frame_color = "green" if is_compliant else "red"
+                    frame_metrics.markdown(f"Frame {frame_count} status: <span style='color:{frame_color};font-weight:bold'>{frame_status}</span>", unsafe_allow_html=True)
             
             # Clean up
             cap.release()
@@ -506,43 +505,68 @@ def video_compliance_checker():
             
             # Final status
             elapsed_time = time.time() - start_time
-            status_text.text(f"Completed in {elapsed_time:.1f}s")
             
             # Determine overall compliance
             compliance_percentage = (compliant_frames / processed_frames * 100) if processed_frames > 0 else 0
-            overall_compliant = compliance_percentage >= 65  # Consider compliant if 35% or more frames are compliant
+            overall_compliant = compliance_percentage >= 35  # Consider compliant if 60% or more frames are compliant
             
-            # Calculate PPE status based on majority of frames
-            final_ppe_status = {}
-            for ppe, stats in compliance_summary.items():
-                total = stats['compliant'] + stats['non_compliant']
-                if total > 0:
-                    final_ppe_status[ppe] = (stats['compliant'] / total >= 0.5)  # Considered compliant if >50% frames show compliance
-            
-            # Display final status similar to image compliance checker
-            with status_placeholder.container():
-                # Overall status
-                st.markdown(f"**Status:** {'✅ ALLOWED' if overall_compliant else '❌ NOT ALLOWED'}")
+            # Show conclusion in the conclusion container
+            with conclusion_container:
+                st.markdown("### Analysis Conclusion")
                 
-                # Display PPE items vertically (one below the other)
-                for ppe, status in final_ppe_status.items():
-                    icon = "✅" if status else "❌"
-                    ppe_name = ppe.replace('_', ' ').title()
-                    st.markdown(f"{icon} {ppe_name}")
+                # Overall conclusion
+                if overall_compliant:
+                    st.success(f"✅ ALLOWED - PPE compliance detected in {compliance_percentage:.1f}% of frames (threshold: 40%)")
+                else:
+                    st.error(f"❌ NOT ALLOWED - PPE compliance in only {compliance_percentage:.1f}% of frames (threshold: 40%)")
                 
-                # Show non-compliant indicators that were detected in frames
-                detected_non_compliant = [
-                    indicator for indicator, count in non_compliant_indicators_count.items() 
-                    if count > 0
-                ]
+                # Add reason for decision
+                st.markdown("#### Reason for Decision")
+                if overall_compliant:
+                    st.success("✅ ALLOWED because:")
+                    st.write(f"- {compliance_percentage:.1f}% of frames show proper PPE compliance (above the 40% threshold)")
+                    st.write(f"- {compliant_frames} out of {processed_frames} processed frames showed proper compliance")
+                else:
+                    st.error("❌ NOT ALLOWED because:")
+                    st.write(f"- Only {compliance_percentage:.1f}% of frames show proper PPE compliance (below the 40% threshold)")
+                    st.write(f"- Only {compliant_frames} out of {processed_frames} processed frames showed proper compliance")
                 
-                if detected_non_compliant:
-                    # Format the indicators for display
-                    formatted_indicators = [indicator.replace('_', ' ').title() for indicator in detected_non_compliant]
-                    st.error(f"Non-compliant items detected: {', '.join(formatted_indicators)}")
+                # Add detailed PPE-specific issues
+                problematic_ppe = []
+                for ppe, stats in compliance_summary.items():
+                    total = stats['compliant'] + stats['non_compliant']
+                    if total > 0:
+                        compliance_rate = stats['compliant'] / total * 100
+                        if compliance_rate < 50:  # Highlight items with poor compliance
+                            problematic_ppe.append(f"{ppe} ({compliance_rate:.1f}% compliance)")
                 
-                # Add compliance rate
-                #st.info(f"Overall compliance rate: {compliance_percentage:.1f}%")
+                if problematic_ppe and not overall_compliant:
+                    st.write(f"- Particularly problematic PPE items: {', '.join(problematic_ppe)}")
+                
+                # Show summary statistics
+                st.markdown("#### Compliance Statistics")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write(f"✅ Compliant frames: {compliant_frames} ({compliant_frames/processed_frames*100:.1f}%)")
+                    st.write(f"❌ Non-compliant frames: {non_compliant_frames} ({non_compliant_frames/processed_frames*100:.1f}%)")
+                    st.write(f"⏱️ Processing time: {elapsed_time:.2f} seconds")
+                
+                with col2:
+                    # Display PPE-specific compliance stats
+                    for ppe, stats in compliance_summary.items():
+                        total = stats['compliant'] + stats['non_compliant']
+                        if total > 0:
+                            compliance_rate = stats['compliant'] / total * 100
+                            st.write(f"{ppe}: {compliance_rate:.1f}% compliance")
+                
+                # Add explanation about angle-dependent items
+                st.info("""
+                **Note on viewing angle:** 
+                Some PPE items like a secured zip are only visible from certain angles. 
+                Once detected, these items are considered present for a short time even if the 
+                person turns and the item is no longer visible in the camera.
+                """)
 
 def webcam_compliance_checker():
     """UI for checking compliance using webcam"""
@@ -759,13 +783,13 @@ def main():
         """)
     
     # Sidebar for navigation
-    st.sidebar.title("PPE Compliance Checker")
+    st.sidebar.title("Options")
     # app_mode = st.sidebar.selectbox(
     #     "Choose the mode",
     #     ["Image Compliance Checker", "Video Compliance Checker", "Webcam Compliance Checker"]
     # )
     app_mode = st.sidebar.selectbox(
-        "Select Mode",
+        "Choose the mode",
         ["Image Compliance Checker", "Video Compliance Checker"]
     )
     
