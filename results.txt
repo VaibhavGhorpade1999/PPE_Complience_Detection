@@ -1,0 +1,35 @@
+{'Precision (P)': 0.92803,
+ 'Recall (R)': 0.81172,
+ 'mAP@0.5': 0.83757,
+ 'mAP@0.5:0.95': 0.55081}
+
+
+Based on the training results from your YOLOv8 large model (yolov8l), here is the model’s final performance:
+
+📊 Model Accuracy Summary
+Precision (P): 92.8%
+→ When the model predicts a class, it is correct ~93% of the time.
+
+Recall (R): 81.2%
+→ It detects ~81% of all actual positive instances.
+
+mAP@0.5 (Mean Average Precision at IoU threshold 0.5): 83.8%
+→ A strong metric showing object detection performance on clear matches.
+
+mAP@0.5:0.95: 55.1%
+→ More strict metric considering varying IoU thresholds. This score is typical for object detection tasks requiring precise localization.
+
+✅ Interpretation
+Your model is very precise, meaning false positives are rare.
+
+Recall is good, but there's room to improve in catching all issues (e.g., zip_not_secured was weaker).
+
+mAP@0.5 is solid, showing reliable detection.
+
+If you're using this model for lab entry decision-making, it’s already quite usable, especially with a confidence threshold like 0.4 (from F1-optimal curve).
+
+Would you like:
+
+A rule engine to convert detections into an "accept/reject" decision?
+
+Suggestions to improve recall or performance for weaker classes (like zip_not_secured or gown_torn)?
