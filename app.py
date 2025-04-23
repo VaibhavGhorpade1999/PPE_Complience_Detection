@@ -746,7 +746,7 @@ def main():
         # Replace 'path_to_your_logo.png' with the actual path to your logo file
         logo_path = "image.png"
         try:
-            st.image(logo_path, width=150)  # Adjust width as needed
+            st.image(logo_path, width=250)  # Adjust width as needed
         except Exception as e:
             st.error(f"Error loading logo: {e}")
     
