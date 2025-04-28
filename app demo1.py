@@ -117,9 +117,9 @@ def display_compliance_metrics(compliance_details, is_compliant):
     # Create a container for the overall status
     status_container = st.container()
     if is_compliant:
-        status_container.success("✅ PASS - All PPE requirements met")
+        status_container.success("✅ ALLOWED - All PPE requirements met")
     else:
-        status_container.error("❌ FAIL - PPE requirements not met")
+        status_container.error("❌ NOT ALLOWED - PPE requirements not met")
     
     # Display detected PPE items
     st.write("PPE Status:")
@@ -258,52 +258,20 @@ def image_compliance_checker():
                 # Create a compact status display
                 with status_placeholder.container():
                     # Overall status
-                    st.markdown(f"<h2 style='font-size: 28px;'>Status: {'✅ PASS' if is_compliant else '❌ FAIL'}</h2>", unsafe_allow_html=True)
+                    st.markdown(f"**Status:** {'✅ ALLOWED' if is_compliant else '❌ NOT ALLOWED'}")
+                    
+                    # Display PPE items vertically (one below the other)
+                    for ppe, status in compliance_details['ppe_status'].items():
+                        icon = "✅" if status else "❌"
+                        ppe_name = ppe.replace('_', ' ').title()
+                        st.markdown(f"{icon} {ppe_name}")
                     
                     # Show non-compliant indicators if any
-                    if not is_compliant:
-                        # First identify non-compliant indicators detected
-                        detected_indicators = []
-                        if compliance_details['non_compliant_indicator_detected']:
-                            detected_indicators = [cls for cls in compliance_details['detected_classes'] 
-                                                  if cls in NON_COMPLIANT_INDICATORS]
-                        
-                        # Convert to formatted names for comparison
-                        formatted_indicators = [item.replace('_', ' ').title() for item in detected_indicators]
-                        
-                        # Create mapping between detected non-compliant indicators and their corresponding PPE items
-                        indicator_to_ppe_map = {
-                            'Boot Not Secured': 'Boot Secured',
-                            'Gloves Not Fitted Securely': 'Gloves Fitted Securely', 
-                            'Headgear Not Secured Backside': 'Headgear Secured',
-                            'Zip Not Secured': 'Zip Secured'
-                        }
-                        
-                        # Collect all non-compliant items without redundancy
-                        non_compliant_items = []
-                        
-                        # First add all detected non-compliant indicators
-                        for indicator in detected_indicators:
-                            item_name = indicator.replace('_', ' ').title()
-                            if item_name not in non_compliant_items:
-                                non_compliant_items.append(item_name)
-                        
-                        # Then add missing required PPE (only if not already covered by a non-compliant indicator)
-                        for ppe, status in compliance_details['ppe_status'].items():
-                            if not status:
-                                ppe_name = ppe.replace('_', ' ').title()
-                                # Only add if there's no corresponding non-compliant indicator already added
-                                if ppe_name not in indicator_to_ppe_map.values() or not any(
-                                    indicator in non_compliant_items for indicator, corresponding_ppe 
-                                    in indicator_to_ppe_map.items() if corresponding_ppe == ppe_name
-                                ):
-                                    non_compliant_items.append(ppe_name)
-                        
-                        # Display the non-compliant items
+                    if compliance_details['non_compliant_indicator_detected']:
+                        non_compliant_items = [cls for cls in compliance_details['detected_classes'] 
+                                              if cls in NON_COMPLIANT_INDICATORS]
                         if non_compliant_items:
-                            st.markdown("**Non-compliant items:**")
-                            for item in non_compliant_items:
-                                st.markdown(f"❌ {item}")
+                            st.error(f"Non-compliant items: {', '.join(non_compliant_items)}")
     else:
         # Display placeholders when no image is uploaded
         original_placeholder.markdown("**Original Image will appear here**")
@@ -371,7 +339,7 @@ def process_video_frame(frame, model, conf_threshold=0.25, item_memory=None):
                        cv2.FONT_HERSHEY_SIMPLEX, font_size, (0, 0, 0), font_thickness)
     
     # Add compliance status to the frame
-    status_text = "PASS" if is_compliant else "FAIL"
+    status_text = "ALLOWED" if is_compliant else "NOT ALLOWED"
     status_color = (0, 255, 0) if is_compliant else (255, 0, 0)
     
     # Create background for status text
@@ -551,47 +519,27 @@ def video_compliance_checker():
                 if total > 0:
                     final_ppe_status[ppe] = (stats['compliant'] / total >= 0.5)  # Considered compliant if >50% frames show compliance
             
-            # Display final status
+            # Display final status similar to image compliance checker
             with status_placeholder.container():
                 # Overall status
-                st.markdown(f"<h2 style='font-size: 28px;'>Status: {'✅ PASS' if is_compliant else '❌ FAIL'}</h2>", unsafe_allow_html=True)
+                st.markdown(f"**Status:** {'✅ ALLOWED' if overall_compliant else '❌ NOT ALLOWED'}")
                 
-                # Show non-compliant items if not compliant
-                if not overall_compliant:
-                    # Create mapping between detected non-compliant indicators and their corresponding PPE items
-                    indicator_to_ppe_map = {
-                        'Boot Not Secured': 'Boot Secured',
-                        'Gloves Not Fitted Securely': 'Gloves Fitted Securely', 
-                        'Headgear Not Secured Backside': 'Headgear Secured',
-                        'Zip Not Secured': 'Zip Secured'
-                    }
-                    
-                    # Get detected non-compliant indicators
-                    detected_non_compliant = [
-                        indicator.replace('_', ' ').title() 
-                        for indicator, count in non_compliant_indicators_count.items() 
-                        if count > 0
-                    ]
-                    
-                    # First add all detected non-compliant indicators
-                    non_compliant_items = detected_non_compliant.copy()
-                    
-                    # Then add missing required PPE (only if not already covered by a non-compliant indicator)
-                    for ppe, status in final_ppe_status.items():
-                        if not status:
-                            ppe_name = ppe.replace('_', ' ').title()
-                            # Only add if there's no corresponding non-compliant indicator already added
-                            if ppe_name not in indicator_to_ppe_map.values() or not any(
-                                indicator in non_compliant_items for indicator, corresponding_ppe 
-                                in indicator_to_ppe_map.items() if corresponding_ppe == ppe_name
-                            ):
-                                non_compliant_items.append(ppe_name)
-                    
-                    # Display the non-compliant items
-                    if non_compliant_items:
-                        st.markdown("**Non-compliant items:**")
-                        for item in non_compliant_items:
-                            st.markdown(f"❌ {item}")
+                # Display PPE items vertically (one below the other)
+                for ppe, status in final_ppe_status.items():
+                    icon = "✅" if status else "❌"
+                    ppe_name = ppe.replace('_', ' ').title()
+                    st.markdown(f"{icon} {ppe_name}")
+                
+                # Show non-compliant indicators that were detected in frames
+                detected_non_compliant = [
+                    indicator for indicator, count in non_compliant_indicators_count.items() 
+                    if count > 0
+                ]
+                
+                if detected_non_compliant:
+                    # Format the indicators for display
+                    formatted_indicators = [indicator.replace('_', ' ').title() for indicator in detected_non_compliant]
+                    st.error(f"Non-compliant items detected: {', '.join(formatted_indicators)}")
                 
                 # Add compliance rate
                 #st.info(f"Overall compliance rate: {compliance_percentage:.1f}%")
@@ -724,9 +672,9 @@ def webcam_compliance_checker():
                 with status_container:
                     # Show current status
                     if is_compliant:
-                        st.success("✅ PASS")
+                        st.success("✅ ALLOWED")
                     else:
-                        st.error("❌ FAIL")
+                        st.error("❌ NOT ALLOWED")
                     
                     # Show compliance details (just a summary to save space)
                     status_cols = st.columns(len(compliance_details['ppe_status']))
@@ -776,10 +724,10 @@ def webcam_compliance_checker():
                     compliance_percentage = (st.session_state.compliant_frames / st.session_state.total_frames * 100)
                     
                     if compliance_percentage >= 40:
-                        st.success(f"Overall: PASS ({compliance_percentage:.1f}% compliance, threshold: 40%)")
+                        st.success(f"Overall: ALLOWED ({compliance_percentage:.1f}% compliance, threshold: 40%)")
                         st.write("Reason: Sufficient frames showed proper PPE compliance")
                     else:
-                        st.error(f"Overall: FAIL ({compliance_percentage:.1f}% compliance, threshold: 40%)")
+                        st.error(f"Overall: NOT ALLOWED ({compliance_percentage:.1f}% compliance, threshold: 40%)")
                         st.write("Reason: Insufficient frames showed proper PPE compliance")
 
 def main():
